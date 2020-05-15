@@ -30,14 +30,10 @@ def file_iterator(f, delay=0.1):
         yield line
 
 
-def make_job_script(flags, env, commands):
+def make_job_script(flags, commands):
     script = '#!/bin/bash\n'
     for k, v in flags.items():
         script += f'#SBATCH --{k}={v}\n'
-    script += '\n'
-
-    for k, v in env.items():
-        script += f'export {k}={v}\n'
     script += '\n'
     script += commands
     return script
@@ -108,8 +104,8 @@ def runjob():
     flags['cpus-per-task'] = n_cpus_per_gpu
     flags['job-name'] = job_name
     flags['gres'] = f'gpu:{n_proc_per_node}'
-    flags['output'] = job_dir / 'stdout.out'
-    flags['error'] = job_dir / 'stdout.out'
+    flags['output'] = job_dir / 'proc=0.out'
+    flags['error'] = job_dir / 'proc=0.out'
 
     env = OrderedDict()
     env.update(
@@ -124,24 +120,27 @@ def runjob():
     )
 
     bash_script = (config_path.parent / project['preamble']).read_text()
-    conda_python = resolve_path(cfg['conda']['root']) / 'envs' / project['conda_env'] / 'bin/python'
-    assign_gpu_path = Path(__file__).resolve().parent / 'assign_gpu.py'
+
+    bash_env_def = ''
+    for k, v in env.items():
+        bash_env_def += f'{k}={v}\n'
+
     if args.assign_gpu:
-        bash_script += '\n# This is automatically added by job-runner'
-        bash_script += f'\neval $({conda_python} {assign_gpu_path})\n'
-    bash_script += '\n'
+        conda_python = resolve_path(cfg['conda']['root']) / 'envs' / project['conda_env'] / 'bin/python'
+        assign_gpu_path = Path(__file__).resolve().parent / 'assign_gpu.py'
+        bash_env_def += f'eval $({conda_python} {assign_gpu_path})\n'
+
+    bash_script = '# This is automatically added by job-runner\n' + bash_env_def + '\n' + bash_script
     bash_script += args.command + ' &> $OUT_FILE'
 
     bash_script_path = job_dir / 'script.sh'
     bash_script_path.write_text(bash_script)
-
     script_command = f'srun bash {bash_script_path}'
     slurm_script_path = job_dir / 'script.slurm'
-    slurm_script = make_job_script(flags, env, script_command)
+    slurm_script = make_job_script(flags, script_command)
     slurm_script_path.write_text(slurm_script)
 
-    print(f"""
-JOB DIRECTORY: {job_dir}
+    print(f"""Job directory: {job_dir}
 Content of script.slurm:
 {'-'*N_COLS}
 {slurm_script}
