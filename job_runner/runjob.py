@@ -52,6 +52,28 @@ def set_config():
     print("Configuration file set to:", config_path)
 
 
+def load_config():
+    try:
+        cache = yaml.load(CACHE_YAML_PATH.read_text(), Loader=yaml.FullLoader)
+    except FileNotFoundError:
+        raise ValueError('Please set your configuration file with runjob-config.')
+    config_path = cache['config_path']
+    print("Using config: ", config_path)
+    cfg = yaml.load(config_path.read_text(), Loader=yaml.FullLoader)
+    return cfg, config_path
+
+
+def print_logs():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("jobid", type=str)
+    args = parser.parse_args()
+    cfg, _ = load_config()
+    storage_dir = resolve_path(cfg['storage']['root'])
+    job_dir = storage_dir / args.jobid
+    for logfile in job_dir.glob('*.out'):
+        print(logfile.read_text())
+
+
 def runjob():
     parser = argparse.ArgumentParser()
     parser.add_argument("--project", default='', type=str)
@@ -63,18 +85,11 @@ def runjob():
     parser.add_argument("command", nargs=argparse.REMAINDER, help='Command to be executed in each process')
     args = parser.parse_args()
 
-    try:
-        cache = yaml.load(CACHE_YAML_PATH.read_text(), Loader=yaml.FullLoader)
-    except FileNotFoundError:
-        raise ValueError('Please set your configuration file with runjob-config.')
-
     if not args.command:
         raise ValueError('Please provide a command to run in your job.')
     args.command = ' '.join(args.command)
 
-    config_path = cache['config_path']
-    print("Using config: ", config_path)
-    cfg = yaml.load(config_path.read_text(), Loader=yaml.FullLoader)
+    cfg, config_path = load_config()
 
     projects = cfg['projects']
     if not args.project:
@@ -123,7 +138,7 @@ def runjob():
 
     bash_env_def = ''
     for k, v in env.items():
-        bash_env_def += f'{k}={v}\n'
+        bash_env_def += f'export {k}={v}\n'
 
     if args.assign_gpu:
         conda_python = resolve_path(cfg['conda']['root']) / 'envs' / project['conda_env'] / 'bin/python'

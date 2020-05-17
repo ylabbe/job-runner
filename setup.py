@@ -10,7 +10,8 @@ setup(
     entry_points={
         'console_scripts': [
             'runjob=job_runner.runjob:runjob',
-            'runjob-config=job_runner.runjob:set_config'
+            'runjob-config=job_runner.runjob:set_config',
+            'printlogs=job_runner.runjob:print_logs'
         ],
     },
     packages=find_packages()
