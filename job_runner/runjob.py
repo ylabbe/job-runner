@@ -71,7 +71,7 @@ def print_logs():
     storage_dir = resolve_path(cfg['storage']['root'])
     job_dir = storage_dir / args.jobid
     for logfile in job_dir.glob('*.out'):
-        print(logfile.read_text())
+        print(logfile.open('r', newline='').read())
 
 
 def runjob():
@@ -147,6 +147,7 @@ def runjob():
 
     bash_script = '# This is automatically added by job-runner\n' + bash_env_def + '\n' + bash_script
     bash_script += args.command + ' &> $OUT_FILE'
+    bash_script += '\nexit 0'
 
     bash_script_path = job_dir / 'script.sh'
     bash_script_path.write_text(bash_script)
