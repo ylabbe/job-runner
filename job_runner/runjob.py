@@ -17,7 +17,7 @@ CACHE_YAML_PATH = CACHE_DIR / 'cache.yaml'
 N_COLS = 80
 
 
-def file_iterator(f, delay=0.1):
+def file_iterator(f, delay=5.0):
     f = Path(f)
     if not f.exists():
         f.write_text('')
@@ -172,7 +172,7 @@ Content of script.sh:
         follow_file = job_dir / 'proc=0.out'
         start = datetime.datetime.now()
         print(f"Job submitted: {start}")
-        print(f"Job output {follow_file}\n{'-'*N_COLS}")
+        print(f"Job {job_name} output {follow_file}\n{'-'*N_COLS}")
         username = getpass.getuser()
         for text in file_iterator(follow_file):
             if text is not None:
@@ -182,7 +182,7 @@ Content of script.sh:
                 break
         end = datetime.datetime.now()
         print(f"{'-'*N_COLS}")
-        print(f"Job finished: {start} ({end - start})")
+        print(f"Job {job_name} finished: {start} ({end - start})")
 
     try:
         print_output()
