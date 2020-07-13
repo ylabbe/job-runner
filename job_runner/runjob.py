@@ -1,5 +1,6 @@
 import yaml
 import datetime
+import shutil
 import os
 import getpass
 import sys
@@ -14,10 +15,12 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 CACHE_DIR = ROOT_DIR / '.cache'
 CACHE_DIR.mkdir(exist_ok=True)
 CACHE_YAML_PATH = CACHE_DIR / 'cache.yaml'
+SQUEUE_PATH = shutil.which('squeue')
+SQUEUE_INTERVAL = 60
 N_COLS = 80
 
 
-def file_iterator(f, delay=5.0):
+def file_iterator(f, delay=0.1):
     f = Path(f)
     if not f.exists():
         f.write_text('')
@@ -167,18 +170,28 @@ Content of script.sh:
 {bash_script}
 {'-'*N_COLS}""")
 
+
+    def is_job_finished(job_name):
+        username = getpass.getuser()
+        jobinfo = subprocess.check_output([SQUEUE_PATH, '-u', username, '--name', job_name, '--noheader'])
+        return len(jobinfo) == 0
+
     def print_output():
         proc_output = subprocess.run(['sbatch', slurm_script_path])
         follow_file = job_dir / 'proc=0.out'
         start = datetime.datetime.now()
         print(f"Job submitted: {start}")
         print(f"Job {job_name} output {follow_file}\n{'-'*N_COLS}")
-        username = getpass.getuser()
+
+        is_done = False
+        time_prev_squeue_check = time.time()
         for text in file_iterator(follow_file):
             if text is not None:
                 print(text, end="")
-            jobinfo = subprocess.check_output(['squeue', '-u', username, '--name', job_name, '--noheader'])
-            if len(jobinfo) == 0:
+            if (time.time() - time_prev_squeue_check) >= SQUEUE_INTERVAL:
+                is_done = is_job_finished(job_name)
+                time_prev_squeue_check = time.time()
+            if is_done:
                 break
         end = datetime.datetime.now()
         print(f"{'-'*N_COLS}")
