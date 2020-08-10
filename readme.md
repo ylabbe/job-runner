@@ -18,6 +18,7 @@ runjob --ngpus=8 --project=myproject --queue=myqueue python distributed_program.
 - N_PROCS
 - PROC_ID
 - OUT_FILE
+- JOB_LOG_FILE
 
 # Config file
 See `examples/config.yaml` for config of projects and queues.

@@ -5,7 +5,7 @@ projects:
   job-runner:
     dir: '$WORK/projects/job-runner'
     preamble: 'preamble.sh'
-    conda_env: 'robotics'
+    conda_env: 'test'
     default_queue: 'gpu_p1'
 
 conda:
@@ -21,3 +21,7 @@ gpu_queues:
     flags:
       partition: 'gpu_p1'
       time: '20:00:00'
+
+  local:
+    n_cpus_per_node: 'auto'
+    n_gpus_per_node: 'auto'

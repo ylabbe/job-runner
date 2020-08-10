@@ -1,6 +1,6 @@
 import yaml
+import multiprocessing
 import datetime
-import shutil
 import os
 import getpass
 import sys
@@ -10,13 +10,13 @@ import subprocess
 import numpy as np
 from pathlib import Path
 import argparse
+from .utils import SlurmRunner, LocalRunner
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 CACHE_DIR = ROOT_DIR / '.cache'
 CACHE_DIR.mkdir(exist_ok=True)
 CACHE_YAML_PATH = CACHE_DIR / 'cache.yaml'
-SQUEUE_PATH = shutil.which('squeue')
-SQUEUE_INTERVAL = 60
+POLLING_INTERVAL = 1
 N_COLS = 80
 
 
@@ -31,15 +31,6 @@ def file_iterator(f, delay=0.1):
             time.sleep(delay)    # Sleep briefly
             yield None
         yield line
-
-
-def make_job_script(flags, commands):
-    script = '#!/bin/bash\n'
-    for k, v in flags.items():
-        script += f'#SBATCH --{k}={v}\n'
-    script += '\n'
-    script += commands
-    return script
 
 
 def resolve_path(s):
@@ -105,14 +96,25 @@ def runjob():
             args.queue = project['default_queue']
         else:
             args.queue = cfg['default_queue']
+
     queue = queues[args.queue]
+
+    is_local = False
+    if args.queue == 'local':
+        is_local = True
+        if queue['n_cpus_per_node'] == 'auto':
+            queue['n_cpus_per_node'] = multiprocessing.cpu_count()
+
+        if queue['n_gpus_per_node'] == 'auto':
+            queue['n_gpus_per_node'] = len(os.environ.get('CUDA_VISIBLE_DEVICES', '').split(','))
+            assert queue['n_gpus_per_node'] > 0
 
     job_name = args.jobid
     storage_dir = resolve_path(cfg['storage']['root'])
     job_dir = storage_dir / job_name
     job_dir.mkdir(exist_ok=True)
 
-    flags = queue['flags']
+    flags = queue.get('flags', dict())
     if args.time:
         flags['time'] = args.time
     flags['ntasks'] = args.ngpus
@@ -134,7 +136,8 @@ def runjob():
         N_CPUS=flags['cpus-per-task'],
         N_PROCS=args.ngpus,
         PROC_ID='${SLURM_PROCID}',
-        OUT_FILE='${JOB_DIR}/proc=${PROC_ID}.out'
+        OUT_FILE='${JOB_DIR}/proc=${PROC_ID}.out',
+        JOB_LOG_FILE='${JOB_DIR}/proc=0.out'
     )
 
     bash_script = (config_path.parent / project['preamble']).read_text()
@@ -154,53 +157,58 @@ def runjob():
 
     bash_script_path = job_dir / 'script.sh'
     bash_script_path.write_text(bash_script)
-    script_command = f'srun bash {bash_script_path}'
-    slurm_script_path = job_dir / 'script.slurm'
-    slurm_script = make_job_script(flags, script_command)
-    slurm_script_path.write_text(slurm_script)
+
+    if is_local:
+        Runner = LocalRunner
+    else:
+        Runner = SlurmRunner
+    runner = Runner(bash_script_path, flags, env)
+
+    string_flags = ''
+    for k, v in flags.items():
+        string_flags += f'{k}={v}\n'
 
     print(f"""Job directory: {job_dir}
-Content of script.slurm:
-{'-'*N_COLS}
-{slurm_script}
-{'-'*N_COLS}
 
 Content of script.sh:
 {'-'*N_COLS}
 {bash_script}
-{'-'*N_COLS}""")
+{'-'*N_COLS}
 
+Flags:
+{'-'*N_COLS}
+{string_flags}
+{'-'*N_COLS}
 
-    def is_job_finished(job_name):
-        username = getpass.getuser()
-        jobinfo = subprocess.check_output([SQUEUE_PATH, '-u', username, '--name', job_name, '--noheader'])
-        return len(jobinfo) == 0
+runner ({Runner}):
+{runner.get_string_infos()}
+""")
 
     def print_output():
-        proc_output = subprocess.run(['sbatch', slurm_script_path])
-        follow_file = job_dir / 'proc=0.out'
+        runner.start()
+        follow_file = Path(env['JOB_LOG_FILE'].replace('${JOB_DIR}', str(job_dir)))
         start = datetime.datetime.now()
-        print(f"Job submitted: {start}")
-        print(f"Job {job_name} output {follow_file}\n{'-'*N_COLS}")
+        print(f"Job started: {start}")
+        print(f"Job output {follow_file}\n{'-'*N_COLS}")
 
         is_done = False
-        time_prev_squeue_check = time.time()
+        time_prev_check = time.time()
         for text in file_iterator(follow_file):
             if text is not None:
                 print(text, end="")
-            if (time.time() - time_prev_squeue_check) >= SQUEUE_INTERVAL:
-                is_done = is_job_finished(job_name)
-                time_prev_squeue_check = time.time()
+            if (time.time() - time_prev_check) >= POLLING_INTERVAL:
+                is_done = runner.is_done()
+                time_prev_check = time.time()
             if is_done:
                 break
         end = datetime.datetime.now()
         print(f"{'-'*N_COLS}")
-        print(f"Job {job_name} finished: {start} ({end - start})")
+        print(f"Job finished: {start} ({end - start})")
 
     try:
         print_output()
     except KeyboardInterrupt:
-        subprocess.run(['scancel', '--name', job_name])
+        runner.stop()
         print("\nJob cancelled.")
 
 
