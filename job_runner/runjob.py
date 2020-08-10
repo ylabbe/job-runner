@@ -16,7 +16,7 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 CACHE_DIR = ROOT_DIR / '.cache'
 CACHE_DIR.mkdir(exist_ok=True)
 CACHE_YAML_PATH = CACHE_DIR / 'cache.yaml'
-POLLING_INTERVAL = 1
+POLLING_INTERVAL = 240
 N_COLS = 80
 
 
