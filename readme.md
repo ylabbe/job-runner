@@ -1,5 +1,5 @@
 # Main features
-- Support for multi-node multi-gpu jobs. The assignment of GPUs to each process (via $CUDA_VISIBLE_DEVICES and $EGL_VISIBLE_DEVICES) is automatically done. *Each process of the job is assumed to be single-GPU*.
+- Support for multi-node multi-gpu jobs. The assignment of GPUs to each process (via $CUDA_VISIBLE_DEVICES) is automatically done. *Each process of the job is assumed to be single-GPU*.
 - Run a command without writing submission scripts
 ```
 runjob --ngpus=8 --project=myproject --queue=myqueue python distributed_program.py

@@ -1,6 +1,7 @@
 from pathlib import Path
 import os
 import subprocess
+import getpass
 import shutil
 
 N_COLS = 80
@@ -29,6 +30,7 @@ class SlurmRunner:
         proc_output = subprocess.run(['sbatch', self.slurm_script_path])
 
     def is_done(self):
+        username = getpass.getuser()
         jobinfo = subprocess.check_output([SQUEUE_PATH, '-u', username, '--name', self.job_name, '--noheader'])
         return len(jobinfo) == 0
 
