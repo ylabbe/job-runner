@@ -16,7 +16,8 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 CACHE_DIR = ROOT_DIR / '.cache'
 CACHE_DIR.mkdir(exist_ok=True)
 CACHE_YAML_PATH = CACHE_DIR / 'cache.yaml'
-POLLING_INTERVAL = 240
+SLURM_POLLING_INTERVAL = 240
+LOCAL_POLLING_INTERVAL = 1
 N_COLS = 80
 
 
@@ -184,6 +185,11 @@ runner ({Runner}):
 {runner.get_string_infos()}
 """)
 
+    if is_local:
+        polling_interval = LOCAL_POLLING_INTERVAL
+    else:
+        polling_interval = SLURM_POLLING_INTERVAL
+
     def print_output():
         runner.start()
         follow_file = Path(env['JOB_LOG_FILE'].replace('${JOB_DIR}', str(job_dir)))
@@ -196,7 +202,7 @@ runner ({Runner}):
         for text in file_iterator(follow_file):
             if text is not None:
                 print(text, end="")
-            if (time.time() - time_prev_check) >= POLLING_INTERVAL:
+            if (time.time() - time_prev_check) >= polling_interval:
                 is_done = runner.is_done()
                 time_prev_check = time.time()
             if is_done:
