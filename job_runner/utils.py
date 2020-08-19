@@ -55,6 +55,7 @@ class LocalRunner:
             # Simulate SLURM environment
             env.update(SLURM_LOCALID=str(n),
                        SLURM_PROCID=str(n),
+                       SLURM_NTASKS=str(self.flags['ntasks']),
                        CUDA_VISIBLE_DEVICES=os.environ['CUDA_VISIBLE_DEVICES'])
             process = subprocess.Popen(['bash', self.bash_script_path], env=env)
             processes.append(process)
