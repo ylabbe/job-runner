@@ -113,7 +113,7 @@ def runjob():
     job_name = args.jobid
     storage_dir = resolve_path(cfg['storage']['root'])
     job_dir = storage_dir / job_name
-    job_dir.mkdir(exist_ok=True)
+    job_dir.mkdir(exist_ok=True, parents=True)
 
     flags = queue.get('flags', dict())
     if args.time:
