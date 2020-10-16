@@ -23,7 +23,14 @@ runjob --ngpus=8 --project=myproject --queue=myqueue python distributed_program.
 # Config file
 See `examples/config.yaml` for config of projects and queues.
 
+# Install
+
+```
+pip install git+https://github.com/ylabbe/job-runner
+```
+
 # Usage
+
 ```
 runjob-config examples/config.yaml
 runjob --ngpus=8 --project=myproject --queue=myqueue python distributed_program.py
