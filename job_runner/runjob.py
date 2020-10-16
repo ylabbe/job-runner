@@ -71,6 +71,7 @@ def print_logs():
 
 def runjob():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--account", default='', type=str)
     parser.add_argument("--project", default='', type=str)
     parser.add_argument("--queue", default='', type=str)
     parser.add_argument("--ngpus", default=1, type=int)
@@ -97,6 +98,9 @@ def runjob():
             args.queue = project['default_queue']
         else:
             args.queue = cfg['default_queue']
+    if not args.account:
+        if 'default_account' in cfg:
+            args.account = cfg['default_account']
 
     queue = queues[args.queue]
 
@@ -127,6 +131,7 @@ def runjob():
     flags['gres'] = f'gpu:{n_proc_per_node}'
     flags['output'] = job_dir / 'proc=0.out'
     flags['error'] = job_dir / 'proc=0.out'
+    flags['account'] = args.account
 
     env = OrderedDict()
     env.update(
